@@ -1,0 +1,23 @@
+---
+#Tags to be merged with custom tags on aws
+default_tags:
+  env: dev
+  admin: bamar
+  manager: ansible
+
+# Prefer debian for database tier
+# Prefer arch for app tier 
+# Prefer alpine for NAT, VPN and docker images
+# All are x86_64 images may wanna try gravitron
+aws_ami:
+  us-east-1:
+    x86_64:
+     arch:   ami-0857dde146952200b  
+     alpine: ami-026896c9df188bad2 # 13.4.2
+     centos: ami-00e87074e52e6c9f9 # centos8  
+     ubuntu: ami-0a99b06fad09f48df # 20.04  
+     debian: ami-00fd4f335e00c21ce # bullseye
+    arm64:                         # For Gravitron2 
+     alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+    
+

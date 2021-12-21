@@ -1,0 +1,11 @@
+---
+- hosts: local
+  vars_files:
+    - vars/vpc.yml
+    - vars/ec2.yml
+    - vars/nat.yml
+
+  roles:
+    - vpc
+    - nat
+    

@@ -1,0 +1,42 @@
+---
+- name: Test if aws_vpc.region is set
+  ansible.builtin.assert:
+    that:
+      - aws_vpc.region is defined
+      - aws_vpc.region is string
+    quiet: yes     
+
+- name: Test if vpc_id is set
+  ansible.builtin.assert:
+    that:
+      - vpc_id is defined
+      - vpc_id is string
+    quiet: yes     
+
+- name: Test if nat_ami_id is set
+  ansible.builtin.assert:
+    that:
+      - nat_ami_id is defined
+      - nat_ami_id is string
+    quiet: yes     
+
+- name: Test if nat_subnet_name is set
+  ansible.builtin.assert:
+    that:
+      - nat_subnet_name is defined
+      - nat_subnet_name is string
+    quiet: yes     
+
+- name: Test if nat_key_name is set
+  ansible.builtin.assert:
+    that:
+      - nat_key_name is defined
+      - nat_key_name is string
+    quiet: yes
+
+- name: Test if nat_sg_name is set
+  ansible.builtin.assert:
+    that:
+      - nat_sg_name is defined
+      - nat_sg_name is string
+    quiet: yes     

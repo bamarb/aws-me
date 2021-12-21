@@ -1,0 +1,40 @@
+{
+  "variables": {
+    "region": "us-east-1",
+    "profile": "default",
+    "ami": "ami-06dcf76ec7ffac7cb",
+    "subnet": "subnet-09784db6ee431ff3d",
+    "security_group": "sg-068adcc315c0d7c87"
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "instance_type": "t2.nano",
+
+      "region": "{{user `region`}}",
+      "profile": "{{user `profile`}}",
+      "source_ami": "{{user `ami`}}",
+
+      "subnet_id": "{{user `subnet`}}",
+      "security_group_id": "{{user `security_group`}}",
+
+      "ssh_username": "alpine",
+      "ssh_timeout": "2m",
+
+      "ami_name": "jump-nat-vpn",
+      "ami_virtualization_type": "hvm"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "config",
+      "destination": "/tmp/config"
+    },
+    {
+      "type": "shell",
+      "script": "scripts/setup-ami",
+      "execute_command": "sudo sh -c '{{.Path}}'"
+    }
+  ]
+}

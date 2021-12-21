@@ -1,0 +1,5 @@
+---
+# defaults file for nat
+nat_ami_id: ami-026896c9df188bad2
+nat_mach_type: t2.micro
+nat_sg_name: nat-sg-d0

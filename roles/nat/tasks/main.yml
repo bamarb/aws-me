@@ -1,0 +1,68 @@
+---
+- name: import assert.yml
+  import_tasks: assert.yml
+  run_once: yes
+  delegate_to: localhost
+
+# Ensure that the key pair exists
+# Note This task fails for .pem files
+
+# - name: Find or create EC2 Key pair
+#   ec2_key:
+#     state: present
+#     region: "{{ aws_vpc.region }}"
+#     name: "{{ nat_key_path | basename | splitext | first }}"
+#     key_material: "{{ lookup('file', nat_key_path) }}" 
+#   delegate_to: localhost
+
+- name: create NAT security group
+  amazon.aws.ec2_group:
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ aws_vpc.region }}"
+    name: "{{ nat_sg_name }}"
+    description: NAT-VPN security group
+    purge_rules: no
+    purge_rules_egress: no
+    state: present
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+    rules_egress:
+      - proto: all
+        cidr_ip: 0.0.0.0/0
+  delegate_to: localhost
+    
+- name: create the NAT instance
+  amazon.aws.ec2_instance:
+    name: "{{ nat_name }}"
+    region: "{{ aws_vpc.region }}"
+    image_id: "{{ nat_ami_id }}"
+    instance_type: "{{ nat_mach_type }}"
+    key_name: "{{ nat_key_name }}"
+    vpc_subnet_id: "{{ subnet_id_map[nat_subnet_name] }}"
+    security_group: "{{ nat_sg_name }}"
+    state: present
+    network:
+      assign_public_ip: true
+      source_dest_check: false
+    wait: true
+  register:  nat_result
+  delegate_to: localhost
+
+    #- name: Debug nat_result
+    #debug: var=nat_result
+
+- name: Add routing rule for NAT egress
+  community.aws.ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    region: "{{ aws_vpc.region }}"
+    purge_routes: false
+    purge_subnets: false
+    lookup: id
+    route_table_id: "{{ rt_priv_id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        instance_id: "{{ nat_result.instance_ids[0] }}"
+

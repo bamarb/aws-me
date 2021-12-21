@@ -1,0 +1,121 @@
+#!/bin/sh
+# vim: set ts=4 et:
+
+set -eu
+
+SSHD_PORT=22
+IFACE=eth0
+JUMP_ONLY=jump
+NEW_SSHD_CONFIG=/tmp/config/ssh_config-jump
+
+USER_DIR="/tmp/config/users"
+ADMIN_DIR="/tmp/config/admins"
+ADMIN_GRP="wheel"
+
+die() {
+    printf '\033[1;31mERROR:\033[0m %s\n' "$@" >&2  # bold red
+    exit 1
+}
+
+einfo() {
+    printf '\n\033[1;36m> %s\033[0m\n' "$@" >&2  # bold cyan
+}
+
+
+configure_iptables() {
+
+apk add iptables
+apk add ip6tables
+rc-update add iptables
+rc-update add ip6tables
+
+echo "iptables" >> /etc/modules
+echo "iptable_nat" >> /etc/modules
+
+# Persist changes across reboots
+/etc/init.d/iptables save
+
+}
+
+#configure nat depends on configure_iptables()
+configure_nat() {
+    # Make the box a router
+    echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+    echo "net.ipv4.conf.eth0.send_redirects = 0" >> /etc/sysctl.conf
+
+    #setup NAT
+    iptables -t nat -A POSTROUTING -o $IFACE -j MASQUERADE
+    # Persist changes across reboots
+    /etc/init.d/iptables save
+}
+
+make_user() {
+    usr="$1"
+    group="$2"
+    shell="$3"
+    keyf="$4"
+    /usr/sbin/adduser  -h /home/$usr $usr -s $shell -G $group -D $usr
+    mkdir -p /home/${usr}/.ssh
+    chmod 700 /home/${usr}/.ssh
+    chmod 700 /home/${usr}
+    if [ -f $keyf ]; then
+        cp $keyf /home/${usr}/.ssh/
+    fi
+    pass=$(head -c 500 /dev/urandom | tr -dc 'a-zA-Z0-9~!@#$' | fold -w30 | head -n1)
+    echo "$usr:$pass" | chpasswd
+    chmod 600 /home/${usr}/.ssh/*
+    chown -R ${usr}:${group} /home/${usr}
+}
+
+#configure users/ users are copied to /tmp/config/users
+#The name of the directory will be the login name.
+#Each user is a normal user without sudo access.
+configure_users() {
+    /usr/sbin/addgroup $JUMP_ONLY
+    for d in ${USER_DIR}/*; do
+       user=$(basename $d)
+       make_user $user $JUMP_ONLY /sbin/nologin ${d}/authorized_keys
+       einfo "Created $user"
+    done
+}
+
+configure_admins() {
+    for d in ${ADMIN_DIR}/*; do
+       user=$(basename $d)
+       make_user $user $ADMIN_GRP /bin/sh ${d}/authorized_keys
+       einfo "Created admin $user"
+    done
+}
+
+configure_sshd() {
+    if [ -f $NEW_SSHD_CONFIG ]; then
+      einfo "Laying the new sshd config"
+      cp $NEW_SSHD_CONFIG /etc/ssh/sshd_config
+    fi
+}
+
+cleanup() {
+    rm -rf /tmp/config
+    sync
+}
+
+main() {
+     einfo "configuring iptables"
+     configure_iptables
+
+     einfo "configuring NAT"
+     configure_nat
+
+     einfo "Creating users"
+     configure_users
+
+     configure_admins
+
+     einfo "configure sshd"
+     configure_sshd
+
+     cleanup
+}
+
+main "$@"
+
