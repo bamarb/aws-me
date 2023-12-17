@@ -1,0 +1,74 @@
+- name: create the partition (legacy hypervisor)
+  community.general.parted:
+    device: "{{ ec2_volumes[volume.key].Device | regex_replace('sd(.*)$','xvd\\1') }}"
+    number: 1
+    label: "gpt"
+    part_start: "0%"
+    part_end: "100%"
+    name: "data"
+    state: "present"
+  when: not use_nitro
+
+- name: create the partition (nitro hypervisor)
+  community.general.parted:
+    device: "{{ nvme_map[volume.key] }}"
+    number: 1
+    label: "gpt"
+    part_start: "0%"
+    part_end: "100%"
+    name: "data"
+    state: "present"
+  when: use_nitro
+
+- name: format to xfs (legacy hypervisor)
+  community.general.filesystem:
+    dev: "{{ ec2_volumes[volume.key].Device | regex_replace('sd(.*)$','xvd\\1') }}1"
+    fstype: "{{ ec2_volumes[volume.key].Fs_type | default('xfs') }}"
+  when: not use_nitro
+
+- name: format to xfs (nitro hypervisor)
+  community.general.filesystem:
+    dev: "{{ nvme_map[volume.key] }}p1"
+    fstype: "{{ ec2_volumes[volume.key].Fs_type | default('xfs') }}"
+  when: use_nitro and ec2_volumes[volume.key].Name != "swap"
+
+- name: get currently mounted swap partitions
+  ansible.builtin.shell: "swapon --raw --noheadings | cut -d' ' -f1 | sed 's/..$//'"
+  register: swap
+
+- name: format to swap
+  ansible.builtin.command: "mkswap {{ nvme_map[volume.key] }}p1"
+  when: use_nitro and ec2_volumes[volume.key].Name == "swap" and swap.stdout != nvme_map[volume.key]
+
+- name: refresh metadata
+  ansible.builtin.setup: {}
+
+- name: create mountpoint
+  ansible.builtin.file:
+    path: "/{{ ec2_volumes[volume.key].Name }}"
+    state: "directory"
+  when: ec2_volumes[volume.key].Name != "swap"    
+
+- name: mount the partition (legacy hypervisor)
+  ansible.posix.mount:
+    path: "/{{ ec2_volumes[volume.key].Name }}"
+    src: "UUID={{ ansible_devices[ec2_volumes[volume.key].Device | regex_replace('^/dev/sd(.*)$','xvd\\1')]['partitions'][ec2_volumes[volume.key].Device | regex_replace('^/dev/sd(.*)$','xvd\\1') + '1']['uuid'] }}"
+    fstype: xfs
+    state: "mounted"
+  when: not use_nitro    
+
+- name: mount the partition (nitro hypervisor)
+  ansible.posix.mount:
+    path: "/{{ ec2_volumes[volume.key].Name }}"
+    src: "UUID={{ ansible_devices[nvme_map[volume.key].split('/')[2]]['partitions'][nvme_map[volume.key].split('/')[2] + 'p1']['uuid'] }}"
+    fstype: xfs
+    state: "mounted"
+  when: use_nitro and ec2_volumes[volume.key].Name != "swap"
+
+- name: mount the partition (nitro hypervisor)
+  ansible.posix.mount:
+    path: "none"
+    src: "UUID={{ ansible_devices[nvme_map[volume.key].split('/')[2]]['partitions'][nvme_map[volume.key].split('/')[2] + 'p1']['uuid'] }}"
+    fstype: swap
+    state: "present"
+  when: use_nitro and ec2_volumes[volume.key].Name == "swap"

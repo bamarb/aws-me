@@ -1,0 +1,46 @@
+---
+# vars file for ec2
+# defaults file for ec2
+# Prefer alpine for NAT, VPN and docker images
+# All are x86_64 images may wanna try gravitron
+aws_ami:
+  us-east-1:
+    x86_64:
+      alpine: ami-026896c9df188bad2 # 13.4.2
+      ubuntu: ami-01b996646377b6619 # 20.04
+      debian: ami-05dd1b6e7ef6f8378 # bullseye
+    arm64: # For Gravitron2
+      alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+      debian: ami-0f73ffad7745d0afd
+  us-west-2:
+    x86_64:
+      alpine: ami-026896c9df188bad2 # 13.4.2
+      ubuntu: ami-0637e7dc7fcc9a2d9 # 20.04
+      debian: ami-0d0d8694ba492c02b # bullseye
+    arm64: # For Gravitron2
+      alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+      debian: ami-05d573cc1cde2c2dd
+  ap-south-1:
+    x86_64:
+      alpine: ami-026896c9df188bad2 # 13.4.2
+      ubuntu: ami-0b8959ac764ad4343 # 20.04
+      debian: ami-020d429f17c9f1d0a # bullseye
+    arm64: # For Gravitron2
+      alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+      debian: ami-053f08d6d7337715e
+  ap-southeast-1:
+    x86_64:
+      alpine: ami-026896c9df188bad2 # 13.4.2
+      ubuntu: ami-042f884c037e74d76 # 20.04
+      debian: ami-09625a221230d9fe6 # bullseye
+    arm64: # For Gravitron2
+      alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+      debian: ami-082723c5d96ea4ea4
+  eu-central-1:
+    x86_64:
+      alpine: ami-026896c9df188bad2 # 13.4.2
+      ubuntu: ami-05b308c240ae70bb6 # 20.04
+      debian: ami-00c36c60f07e21791 # bullseye
+    arm64: # For Gravitron2
+      alpine: ami-0a3abf8ad69da90c0 # 13.4.2
+      debian: ami-009f88c13a1d3151b

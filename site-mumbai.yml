@@ -1,0 +1,16 @@
+---
+- hosts: local
+  vars_files:
+    - vars/vpc-mumbai.yml
+    - vars/ec2-ami.yml
+
+  roles:
+    #- vpc
+    #- nat
+
+- hosts: wireguard
+  become: yes
+  vars_files:
+    - vars/vpc-mumbai.yml
+  roles:
+    - wireguard

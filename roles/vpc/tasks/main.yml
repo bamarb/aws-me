@@ -1,5 +1,5 @@
 ---
-- name: create vpc 
+- name: create vpc
   ec2_vpc_net:
     name: "{{ aws_vpc.name }}"
     cidr_block: "{{ aws_vpc.cidr }}"
@@ -7,11 +7,22 @@
     state: present
     tenancy: default
     tags: "{{ default_tags }}"
+    dns_support: yes
+    # enable dns hostnames
+    dns_hostnames: yes
   register: vpc_result
 
-- name: create vpc id fact 
+- name: create vpc id fact
   set_fact:
     vpc_id: "{{ vpc_result.vpc.id }}"
+
+- name: Get public subnet names
+  set_fact:
+    public_subnet_names: "{{ aws_vpc.subnets | selectattr('public', 'eq', 'True') | map(attribute='name') | list }}"
+
+- name: Get private subnet names
+  set_fact:
+    private_subnet_names: "{{ aws_vpc.subnets | selectattr('public', 'eq', 'False') | map(attribute='name') | list }}"
 
 - name: create subnets
   ec2_vpc_subnet:
@@ -25,72 +36,43 @@
   loop: "{{ aws_vpc.subnets }}"
   register: subnet_result
 
-- name:  Create a map of subnet_name -> subnet_ip
+- name: Create a map of subnet_name -> subnet_id
   set_fact:
     subnet_id_map: "{{ subnet_id_map| default({}) | combine({ item.item.name : item.subnet.id }) }}"
   loop: "{{ subnet_result.results }}"
   no_log: true
 
-- name: Debug subnet_id_map
-  debug: var=subnet_id_map
-
-- name: create igw for vpc
+- name: create internet gateway for vpc
   ec2_vpc_igw:
     vpc_id: "{{ vpc_result.vpc.id }}"
     region: "{{ aws_vpc.region }}"
     state: present
     tags: "{{ default_tags|combine({'name' : 'igw'}) }}"
-  register:
-    igw_result
-
-- name: Gather all public subnets 
-  ec2_vpc_subnet_info:
-    filters:
-      vpc-id: "{{ vpc_id }}"
-      "tag:public_subnet": "True"
-  register: subnet_info
-
-- name: set public_subnet_ids fact
-  set_fact:
-    public_subnet_ids: "{{ subnet_info.subnets|map(attribute='id')|list }}"
-
-- name: Gather all private subnets 
-  ec2_vpc_subnet_info:
-    filters:
-      vpc-id: "{{ vpc_id }}"
-      "tag:public_subnet": "False"
-  register: private_subnet_info
-
-- name: set private_subnet_ids fact
-  set_fact:
-    private_subnet_ids: "{{ private_subnet_info.subnets|map(attribute='id')|list }}"
-
-- name: Debug private_subnet_ids
-  debug: var=private_subnet_ids
+  register: igw_result
 
 - name: setup the main egress routing table
   community.aws.ec2_vpc_route_table:
     vpc_id: "{{ vpc_result.vpc.id }}"
     region: "{{ aws_vpc.region }}"
     state: present
-    tags: "{{ [default_tags,aws_vpc.igw.cust_tags]|combine}}"
-    subnets: "{{ public_subnet_ids }}"
+    tags: "{{ [default_tags,aws_vpc.igw.cust_tags]|combine }}"
+    subnets: "{{ public_subnet_names }}"
     routes:
       - dest: 0.0.0.0/0
         gateway_id: "{{ igw_result.gateway_id }}"
-  register: rt_pub_result      
-    
+  register: rt_pub_result
+
 - name: setup the private subnet routing table routing table
   community.aws.ec2_vpc_route_table:
     vpc_id: "{{ vpc_result.vpc.id }}"
     region: "{{ aws_vpc.region }}"
     state: present
     tags: "{{ [default_tags,aws_vpc.intgw.cust_tags]|combine }}"
-    subnets: "{{ private_subnet_ids }}"
+    subnets: "{{ private_subnet_names }}"
     routes:
-      - dest: "10.0.0.0/16"
+      - dest: "{{ aws_vpc.cidr }}"
         gateway_id: local
-  register: rt_priv_result 
+  register: rt_priv_result
 
 - name: set the route table id fact
   set_fact:
@@ -102,5 +84,3 @@
 
 - name: Debug rt_pub_id
   debug: var=rt_pub_id
-
-  

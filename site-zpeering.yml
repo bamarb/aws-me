@@ -1,0 +1,8 @@
+---
+# Setup vpc peering across regions
+# Run after creating all VPC's
+
+- hosts: local
+  gather_facts: false
+
+  - 

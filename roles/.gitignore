@@ -10,6 +10,7 @@
 # and any specific role we want to version locally
 !vpc/
 !nat/
+!ec2/
 
 
 

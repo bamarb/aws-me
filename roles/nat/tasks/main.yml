@@ -1,7 +1,7 @@
 ---
 - name: import assert.yml
   import_tasks: assert.yml
-  run_once: yes
+  run_once: true
   delegate_to: localhost
 
 # Ensure that the key pair exists
@@ -12,7 +12,7 @@
 #     state: present
 #     region: "{{ aws_vpc.region }}"
 #     name: "{{ nat_key_path | basename | splitext | first }}"
-#     key_material: "{{ lookup('file', nat_key_path) }}" 
+#     key_material: "{{ lookup('file', nat_key_path) }}"
 #   delegate_to: localhost
 
 - name: create NAT security group
@@ -29,11 +29,15 @@
         from_port: 22
         to_port: 22
         cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: "{{ wg_listen_port }}"
+        to_port: "{{ wg_listen_port }}"
+        cidr_ip: 0.0.0.0/0
     rules_egress:
       - proto: all
         cidr_ip: 0.0.0.0/0
   delegate_to: localhost
-    
+
 - name: create the NAT instance
   amazon.aws.ec2_instance:
     name: "{{ nat_name }}"
@@ -43,18 +47,27 @@
     key_name: "{{ nat_key_name }}"
     vpc_subnet_id: "{{ subnet_id_map[nat_subnet_name] }}"
     security_group: "{{ nat_sg_name }}"
-    state: present
+    state: running
     network:
-      assign_public_ip: true
+      assign_public_ip: false
       source_dest_check: false
     wait: true
-  register:  nat_result
-  delegate_to: localhost
+  register: nat_result
 
-    #- name: Debug nat_result
-    #debug: var=nat_result
+- name: allocate an elastic IP
+  community.aws.ec2_eip:
+    in_vpc: true
+    device_id: "{{ nat_result.instance_ids[0] }}"
+    region: "{{ aws_vpc.region }}"
+    reuse_existing_ip_allowed: yes
+    tag_name: "Eip"
+    tag_value: "wireguard"
+  register: eip
 
-- name: Add routing rule for NAT egress
+- name: debug eip
+  debug: var=eip
+
+- name: Add routing rule for NAT egress into our internal gateway
   community.aws.ec2_vpc_route_table:
     vpc_id: "{{ vpc_id }}"
     region: "{{ aws_vpc.region }}"
@@ -66,3 +79,18 @@
       - dest: 0.0.0.0/0
         instance_id: "{{ nat_result.instance_ids[0] }}"
 
+- name: wait for ssh to come up
+  ansible.builtin.wait_for:
+    port: 22
+    host: "{{ eip.public_ip }}"
+    delay: 60
+    timeout: 300
+  delegate_to: localhost
+
+- name: Add host to wireguard group
+  add_host:
+    name: "{{ eip.public_ip }}"
+    ansible_user: "{{ nat_user_name }}"
+    ansible_ssh_private_key_file: "{{ nat_key_path }}"
+    groups:
+      - wireguard

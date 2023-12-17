@@ -1,0 +1,90 @@
+---
+default_tags:
+  Provisioner: ansible
+  Environment: prod
+
+## VPC Configuration
+aws_vpc:
+  name: "vpc-aps1-d0"
+  cidr: "10.1.0.0/16"
+  region: "ap-south-1"
+  cust_tags: { Name: "vpc-aps1-d0", Role: VPC }
+  igw:
+    name: "internet-rt-aps1-d0"
+    cust_tags: { Name: "igw-aps1-d0", Role: EXT-GW }
+
+  # Internal gateway for routing between intranets
+  intgw:
+    name: "internal-rt-aps1-d0"
+    cust_tags: { Name: "intgw-aps1-d0", Role: INT-GW }
+
+  subnets:
+    - name: "sub-pub-aps1a-d0"
+      cidr: "10.1.1.0/24"
+      public: "True" #Note ansible converts true to True
+      az: "ap-south-1a"
+      cust_tags: { Name: "sub-pub-aps1a-d0", Sub_type: "pub" }
+
+    - name: "sub-pub-aps1b-d0"
+      cidr: "10.1.2.0/24"
+      public: "True" #Note ansible converts true to True
+      az: "ap-south-1b"
+      cust_tags: { Name: "sub-pub-aps1b-d0", Sub_type: "pub" }
+
+    - name: "sub-priv-aps1a-d1"
+      cidr: "10.1.3.0/24"
+      public: "False"
+      az: "ap-south-1a"
+      cust_tags: { Name: "sub-priv-aps1a-d1", Sub_type: "priv" }
+
+    - name: "sub-priv-aps1b-d2"
+      cidr: "10.1.4.0/24"
+      public: "False"
+      az: "ap-south-1b"
+      cust_tags: { Name: "sub-priv-aps1b-d2", Sub_type: "priv" }
+
+# Security Groups config TODO
+
+# NAT Configuration
+nat_ami_id: ami-020d429f17c9f1d0a
+nat_subnet_name: "sub-pub-aps1a-d0"
+nat_mach_type: "t3a.micro"
+nat_key_name: "wireguard-mum"
+nat_key_path: "~/.ssh/wireguard-mum.pem"
+nat_user_name: "admin"
+nat_sg_name: nat-sg-ue1-d1
+nat_name: nat-ue1-d0
+
+# Wireguard (static) configuration
+wg_listen_port: 41414
+wg_tunnel_network: "10.250.0.0/24"
+wg_tunnel_endpoint: "10.250.0.1/24"
+wg_interface: "wg0"
+wg_local_ip: "10.250.0.2/24"
+
+# EC2 Instances
+# public IP can be yes, no, or static
+ec2_instances:
+  - name: "api-srv-1"
+    ami: "debian"
+    mach_type: "t3a.medium"
+    user: "admin"
+    key_name: "wireguard-mum"
+    key_path: "~/.ssh/wireguard-mum.pem"
+    subnet: "sub-priv-aps1a-d1"
+    public_ip: "no"
+    cust_tags:
+      Name: "api-srv-1-aps1a-d1"
+      Groups: "https-servers,api-servers,db-servers"
+
+  - name: "api-srv-2"
+    ami: "debian"
+    mach_type: "t3a.medium"
+    user: "admin"
+    subnet: "sub-priv-aps1a-d1"
+    key_name: "wireguard-mum"
+    key_path: "~/.ssh/wireguard-mum.pem"
+    public_ip: "no"
+    cust_tags:
+      Name: "api-srv-2-aps1a-d1"
+      Groups: "http-servers,api-servers,db-servers"

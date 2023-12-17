@@ -1,0 +1,9 @@
+{
+    "User": {
+        "Path": "/",
+        "UserName": "bamar",
+        "UserId": "AIDA2WO4CQIDRH3NYOCA5",
+        "Arn": "arn:aws:iam::735437816327:user/bamar",
+        "CreateDate": "2022-04-26T11:53:38+00:00"
+    }
+}
